@@ -14,6 +14,16 @@ export function getNetworkIdentifier (state) {
   return nickname || rpcUrl || type
 }
 
+export function getMetricsNetworkIdentifier (state) {
+  const { provider } = state.metamask
+  return provider.type === 'rpc' ? provider.rpcUrl : provider.type
+}
+
+export function getCurrentChainId (state) {
+  const { chainId } = state.metamask.provider
+  return chainId
+}
+
 export function getCurrentKeyring (state) {
   const identity = getSelectedIdentity(state)
 
@@ -156,11 +166,11 @@ export function getAssetImages (state) {
 }
 
 export function getAddressBook (state) {
-  const { network } = state.metamask
-  if (!state.metamask.addressBook[network]) {
+  const chainId = getCurrentChainId(state)
+  if (!state.metamask.addressBook[chainId]) {
     return []
   }
-  return Object.values(state.metamask.addressBook[network])
+  return Object.values(state.metamask.addressBook[chainId])
 }
 
 export function getAddressBookEntry (state, address) {
@@ -325,8 +335,4 @@ export function getOriginOfCurrentTab (state) {
 
 export function getIpfsGateway (state) {
   return state.metamask.ipfsGateway
-}
-
-export function getCustomNetworkId (state) {
-  return state.metamask.settings?.network
 }

@@ -23,7 +23,7 @@ import {
 import { AWAITING_SWAP_ROUTE, BUILD_QUOTE_ROUTE, LOADING_QUOTES_ROUTE, SWAPS_ERROR_ROUTE, SWAPS_MAINTENANCE_ROUTE } from '../../helpers/constants/routes'
 import { fetchSwapsFeatureLiveness } from '../../pages/swaps/swaps.util'
 import { calcGasTotal } from '../../pages/send/send.utils'
-import { decimalToHex, getValueFromWeiHex, hexMax, decGWEIToHexWEI, hexToDecimal } from '../../helpers/utils/conversions.util'
+import { decimalToHex, getValueFromWeiHex, hexMax, decGWEIToHexWEI, hexToDecimal, decEthToConvertedCurrency, hexWEIToDecGWEI } from '../../helpers/utils/conversions.util'
 import { calcTokenAmount } from '../../helpers/utils/token-util'
 import {
   getFastPriceEstimateInHexWEI,
@@ -38,7 +38,7 @@ import {
   SWAP_FAILED_ERROR,
 } from '../../helpers/constants/swaps'
 import { SWAP, SWAP_APPROVAL } from '../../helpers/constants/transactions'
-import { fetchBasicGasAndTimeEstimates, fetchGasEstimates, resetCustomData } from '../gas/gas.duck'
+import { fetchBasicGasAndTimeEstimates, fetchGasEstimates, resetCustomGasState } from '../gas/gas.duck'
 import { formatCurrency } from '../../helpers/utils/confirm-tx.util'
 
 const initialState = {
@@ -50,7 +50,6 @@ const initialState = {
   quotesFetchStartTime: null,
   topAssets: {},
   toToken: null,
-  metamaskFeeAmount: null,
 }
 
 const slice = createSlice({
@@ -89,9 +88,6 @@ const slice = createSlice({
     setToToken: (state, action) => {
       state.toToken = action.payload
     },
-    setMetamaskFeeAmount: (state, action) => {
-      state.metamaskFeeAmount = action.payload
-    },
   },
 })
 
@@ -110,8 +106,6 @@ export const getFromToken = (state) => state.swaps.fromToken
 export const getTopAssets = (state) => state.swaps.topAssets
 
 export const getToToken = (state) => state.swaps.toToken
-
-export const getMetaMaskFeeAmount = (state) => state.swaps.metamaskFeeAmount
 
 export const getFetchingQuotes = (state) => state.swaps.fetchingQuotes
 
@@ -200,7 +194,6 @@ const {
   setQuotesFetchStartTime,
   setTopAssets,
   setToToken,
-  setMetamaskFeeAmount,
 } = actions
 
 export {
@@ -212,7 +205,6 @@ export {
   setQuotesFetchStartTime as setSwapQuotesFetchStartTime,
   setTopAssets,
   setToToken as setSwapToToken,
-  setMetamaskFeeAmount,
 }
 
 export const navigateBackToBuildQuote = (history) => {
@@ -235,7 +227,7 @@ export const prepareForRetryGetQuotes = () => {
 
 export const prepareToLeaveSwaps = () => {
   return async (dispatch) => {
-    dispatch(resetCustomData())
+    dispatch(resetCustomGasState())
     dispatch(clearSwapsState())
     await dispatch(resetBackgroundSwapsState())
 
@@ -462,6 +454,13 @@ export const signAndSendTransactions = (history, metaMetricsEvent) => {
       conversionRate,
       numberOfDecimals: 6,
     })
+    const averageSavings = usedQuote.isBestQuote
+      ? decEthToConvertedCurrency(
+        usedQuote.savings?.total,
+        'usd',
+        conversionRate,
+      )
+      : null
     const swapMetaData = {
       token_from: sourceTokenInfo.symbol,
       token_from_amount: String(swapTokenValue),
@@ -474,6 +473,10 @@ export const signAndSendTransactions = (history, metaMetricsEvent) => {
       other_quote_selected: usedQuote.aggregator !== getTopQuote(state)?.aggregator,
       other_quote_selected_source: usedQuote.aggregator === getTopQuote(state)?.aggregator ? '' : usedQuote.aggregator,
       gas_fees: formatCurrency(gasEstimateTotalInEth, 'usd')?.slice(1),
+      estimated_gas: estimatedGasLimit.toString(10),
+      suggested_gas_price: hexWEIToDecGWEI(usedGasPrice),
+      used_gas_price: hexWEIToDecGWEI(fastGasEstimate),
+      average_savings: averageSavings,
     }
 
     const metaMetricsConfig = {

@@ -1,22 +1,51 @@
-import React from 'react'
+import React, { useContext } from 'react'
 import PropTypes from 'prop-types'
+import { I18nContext } from '../../../contexts/i18n'
 import InfoTooltip from '../../../components/ui/info-tooltip'
 
 export default function FeeCard ({
-  feeRowText,
   primaryFee,
   secondaryFee,
-  thirdRow,
-  maxFeeRow,
+  hideTokenApprovalRow,
+  onFeeCardMaxRowClick,
+  tokenApprovalTextComponent,
+  tokenApprovalSourceTokenSymbol,
+  onTokenApprovalClick,
 }) {
+  const t = useContext(I18nContext)
+
   return (
     <div className="fee-card">
       <div className="fee-card__main">
         <div className="fee-card__row-header">
           <div>
             <div className="fee-card__row-header-text--bold">
-              {feeRowText}
+              {t('swapEstimatedNetworkFee')}
             </div>
+            <InfoTooltip
+              position="top"
+              contentText={(
+                <>
+                  <p className="fee-card__info-tooltip-paragraph">{ t('swapGasFeeSummary') }</p>
+                  <p className="fee-card__info-tooltip-paragraph">{ t('swapEstimatedNetworkFeeSummary', [
+                    <span className="fee-card__bold" key="fee-card-bold-1">
+                      { t('swapEstimatedNetworkFee') }
+                    </span>,
+                  ]) }
+                  </p>
+                  <p className="fee-card__info-tooltip-paragraph">{ t('swapMaxNetworkFeeInfo', [
+                    <span className="fee-card__bold" key="fee-card-bold-2">
+                      { t('swapMaxNetworkFees') }
+                    </span>,
+                  ]) }
+                  </p>
+                </>
+              )
+              }
+              containerClassName="fee-card__info-tooltip-content-container"
+              wrapperClassName="fee-card__row-label fee-card__info-tooltip-container"
+              wide
+            />
           </div>
           <div>
             <div className="fee-card__row-header-secondary--bold">
@@ -29,19 +58,13 @@ export default function FeeCard ({
             )}
           </div>
         </div>
-        <div className="fee-card__row-header" onClick={() => maxFeeRow.onClick()}>
+        <div className="fee-card__row-header" onClick={() => onFeeCardMaxRowClick()}>
           <div>
             <div className="fee-card__row-header-text">
-              {maxFeeRow.text}
+              {t('swapMaxNetworkFees')}
             </div>
             <div className="fee-card__link">
-              {maxFeeRow.linkText}
-            </div>
-            <div className="fee-card__row-label">
-              <InfoTooltip
-                position="top"
-                contentText={maxFeeRow.tooltipText}
-              />
+              {t('edit')}
             </div>
           </div>
           <div>
@@ -55,18 +78,18 @@ export default function FeeCard ({
             )}
           </div>
         </div>
-        {thirdRow && !thirdRow.hide && (
+        {!hideTokenApprovalRow && (
           <div className="fee-card__top-bordered-row">
             <div className="fee-card__row-label">
               <div className="fee-card__row-header-text">
-                {thirdRow.text}
+                {t('swapThisWillAllowApprove', [tokenApprovalTextComponent])}
               </div>
-              <div className="fee-card__link" onClick={() => thirdRow.onClick()}>
-                {thirdRow.linkText}
+              <div className="fee-card__link" onClick={() => onTokenApprovalClick()}>
+                {t('swapEditLimit')}
               </div>
               <InfoTooltip
                 position="top"
-                contentText={thirdRow.tooltipText}
+                contentText={t('swapEnableDescription', [tokenApprovalSourceTokenSymbol])}
               />
             </div>
           </div>
@@ -77,7 +100,6 @@ export default function FeeCard ({
 }
 
 FeeCard.propTypes = {
-  feeRowText: PropTypes.string.isRequired,
   primaryFee: PropTypes.shape({
     fee: PropTypes.string.isRequired,
     maxFee: PropTypes.string.isRequired,
@@ -86,23 +108,9 @@ FeeCard.propTypes = {
     fee: PropTypes.string.isRequired,
     maxFee: PropTypes.string.isRequired,
   }),
-  maxFeeRow: PropTypes.shape({
-    text: PropTypes.string.isRequired,
-    linkText: PropTypes.string.isRequired,
-    tooltipText: PropTypes.string.isRequired,
-    onClick: PropTypes.func.isRequired,
-  }).isRequired,
-  thirdRow: PropTypes.shape({
-    text: PropTypes.oneOfType([
-      PropTypes.string,
-      PropTypes.node,
-    ]).isRequired,
-    linkText: PropTypes.string.isRequired,
-    tooltipText: PropTypes.oneOfType([
-      PropTypes.string,
-      PropTypes.node,
-    ]).isRequired,
-    onClick: PropTypes.func.isRequired,
-    hide: PropTypes.bool.isRequired,
-  }),
+  onFeeCardMaxRowClick: PropTypes.func.isRequired,
+  hideTokenApprovalRow: PropTypes.bool.isRequired,
+  tokenApprovalTextComponent: PropTypes.node,
+  tokenApprovalSourceTokenSymbol: PropTypes.string,
+  onTokenApprovalClick: PropTypes.func,
 }

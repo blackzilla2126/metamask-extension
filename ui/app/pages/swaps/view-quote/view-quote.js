@@ -72,6 +72,7 @@ import { useTokenTracker } from '../../../hooks/useTokenTracker'
 import { QUOTES_EXPIRED_ERROR } from '../../../helpers/constants/swaps'
 import CountdownTimer from '../countdown-timer'
 import SwapsFooter from '../swaps-footer'
+import InfoTooltip from '../../../components/ui/info-tooltip'
 
 export default function ViewQuote () {
   const history = useHistory()
@@ -131,12 +132,11 @@ export default function ViewQuote () {
     .round(0)
     .toString(16)
 
-  const maxGasLimit = (customMaxGas ||
-    hexMax(
-      (`0x${decimalToHex(usedQuote?.maxGas || 0)}`),
-      usedGasLimitWithMultiplier,
-    )
+  const nonCustomMaxGasLimit = hexMax(
+    (`0x${decimalToHex(usedQuote?.maxGas || 0)}`),
+    usedGasLimitWithMultiplier,
   )
+  const maxGasLimit = customMaxGas || nonCustomMaxGasLimit
 
   const gasTotalInWeiHex = calcGasTotal(maxGasLimit, gasPrice)
 
@@ -340,7 +340,9 @@ export default function ViewQuote () {
     }
   }, [sourceTokenSymbol, sourceTokenValue, destinationTokenSymbol, destinationTokenValue, fetchParams, topQuote, numberOfQuotes, feeInFiat, bestQuoteReviewedEvent, anonymousBestQuoteReviewedEvent])
 
-  const onFeeCardThirdRowClickHandler = () => {
+  const metaMaskFee = usedQuote.fee
+
+  const onFeeCardTokenApprovalClick = () => {
     anonymousEditSpendLimitOpened()
     editSpendLimitOpened()
     dispatch(showModal({
@@ -375,7 +377,7 @@ export default function ViewQuote () {
     }))
   }
 
-  const onFeeCardMaxRowClickHandler = () => dispatch(showModal({
+  const onFeeCardMaxRowClick = () => dispatch(showModal({
     name: 'CUSTOMIZE_GAS',
     txData: { txParams: { ...tradeTxParams, gas: maxGasLimit } },
     isSwap: true,
@@ -394,9 +396,10 @@ export default function ViewQuote () {
         : null
     ),
     useFastestButtons: true,
+    minimumGasLimit: Number(hexToDecimal(nonCustomMaxGasLimit)),
   }))
 
-  const thirdRowTextComponent = (
+  const tokenApprovalTextComponent = (
     <span
       key="swaps-view-quote-approve-symbol-1"
       className="view-quote__bold"
@@ -494,6 +497,14 @@ export default function ViewQuote () {
             <i className="fa fa-arrow-right" />
           </div>
         </div>
+        <div className="view-quote__metamask-rate">
+          <p className="view-quote__metamask-rate-text">{ t('swapQuoteIncludesRate', [metaMaskFee]) }</p>
+          <InfoTooltip
+            position="top"
+            contentText={t('swapMetaMaskFeeDescription', [metaMaskFee])}
+            wrapperClassName="view-quote__metamask-rate-info-icon"
+          />
+        </div>
         <div
           className={classnames('view-quote__fee-card-container', {
             'view-quote__fee-card-container--thin': showWarning,
@@ -501,7 +512,6 @@ export default function ViewQuote () {
           })}
         >
           <FeeCard
-            feeRowText={t('swapEstimatedNetworkFee')}
             primaryFee={({
               fee: feeInEth,
               maxFee: maxFeeInEth,
@@ -510,19 +520,13 @@ export default function ViewQuote () {
               fee: feeInFiat,
               maxFee: maxFeeInFiat,
             })}
-            maxFeeRow={({
-              text: t('swapMaxNetworkFees'),
-              linkText: t('edit'),
-              tooltipText: t('swapMaxNetworkFeeInfo'),
-              onClick: onFeeCardMaxRowClickHandler,
-            })}
-            thirdRow={({
-              text: t('swapThisWillAllowApprove', [thirdRowTextComponent]),
-              linkText: t('swapEditLimit'),
-              tooltipText: t('swapEnableDescription', [sourceTokenSymbol]),
-              onClick: onFeeCardThirdRowClickHandler,
-              hide: !approveTxParams || (balanceError && !warningHidden),
-            })}
+            onFeeCardMaxRowClick={onFeeCardMaxRowClick}
+            hideTokenApprovalRow={
+              !approveTxParams || (balanceError && !warningHidden)
+            }
+            tokenApprovalTextComponent={tokenApprovalTextComponent}
+            tokenApprovalSourceTokenSymbol={sourceTokenSymbol}
+            onTokenApprovalClick={onFeeCardTokenApprovalClick}
           />
         </div>
       </div>

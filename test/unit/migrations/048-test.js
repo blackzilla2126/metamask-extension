@@ -237,8 +237,8 @@ describe('migration #48', function () {
 
     const newStorage = await migration48.migrate(oldStorage)
     assert.deepEqual(
-      { ...oldStorage.data, ...expectedPreferencesState },
-      { ...newStorage.data, ...expectedPreferencesState },
+      { ...expectedPreferencesState, ...oldStorage.data },
+      { ...expectedPreferencesState, ...newStorage.data },
     )
   })
 
@@ -344,6 +344,291 @@ describe('migration #48', function () {
         bar: {
           baz: 'buzz',
         },
+      },
+      foo: 'bar',
+    })
+  })
+
+  it('should migrate the address book', async function () {
+    const oldStorage = {
+      meta: {},
+      data: {
+        AddressBookController: {
+          addressBook: {
+            '1': {
+              'address1': {
+                chainId: '1',
+                foo: 'bar',
+              },
+            },
+            '100': {
+              'address1': {
+                chainId: '100',
+                foo: 'bar',
+              },
+            },
+            '0x2': {
+              'address2': {
+                chainId: '0x2',
+                foo: 'bar',
+              },
+            },
+          },
+          bar: {
+            baz: 'buzz',
+          },
+        },
+        foo: 'bar',
+      },
+    }
+
+    const newStorage = await migration48.migrate(oldStorage)
+    assert.deepEqual(newStorage.data, {
+      ...expectedPreferencesState,
+      AddressBookController: {
+        addressBook: {
+          '0x1': {
+            'address1': {
+              chainId: '0x1',
+              foo: 'bar',
+            },
+          },
+          '0x64': {
+            'address1': {
+              chainId: '0x64',
+              foo: 'bar',
+            },
+          },
+          '0x2': {
+            'address2': {
+              chainId: '0x2',
+              foo: 'bar',
+            },
+          },
+        },
+        bar: {
+          baz: 'buzz',
+        },
+      },
+      foo: 'bar',
+    })
+  })
+
+  it('should migrate the address book and merge entries', async function () {
+    const oldStorage = {
+      meta: {},
+      data: {
+        AddressBookController: {
+          addressBook: {
+            '2': {
+              'address1': {
+                chainId: '2',
+                key2: 'kaplar',
+                key3: 'value3',
+                key4: null,
+                foo: 'bar',
+              },
+              'address2': {
+                chainId: '2',
+                foo: 'bar',
+              },
+            },
+            '0x2': {
+              'address1': {
+                chainId: '0x2',
+                key1: 'value1',
+                key2: 'value2',
+                foo: 'bar',
+              },
+              'address3': {
+                chainId: '0x2',
+                foo: 'bar',
+              },
+            },
+          },
+          bar: {
+            baz: 'buzz',
+          },
+        },
+        foo: 'bar',
+      },
+    }
+
+    const newStorage = await migration48.migrate(oldStorage)
+    assert.deepEqual(newStorage.data, {
+      ...expectedPreferencesState,
+      AddressBookController: {
+        addressBook: {
+          '0x2': {
+            'address1': {
+              chainId: '0x2',
+              key1: 'value1',
+              key2: 'value2',
+              key3: 'value3',
+              key4: '',
+              foo: 'bar',
+            },
+            'address2': {
+              chainId: '0x2',
+              foo: 'bar',
+            },
+            'address3': {
+              chainId: '0x2',
+              foo: 'bar',
+            },
+          },
+        },
+        bar: {
+          baz: 'buzz',
+        },
+      },
+      foo: 'bar',
+    })
+  })
+
+  it('should not modify address book if all entries are valid or un-parseable', async function () {
+    const oldStorage = {
+      meta: {},
+      data: {
+        AddressBookController: {
+          addressBook: {
+            '0x1': { foo: { bar: 'baz' } },
+            'kaplar': { foo: { bar: 'baz' } },
+          },
+          bar: {
+            baz: 'buzz',
+          },
+        },
+        foo: 'bar',
+      },
+    }
+
+    const newStorage = await migration48.migrate(oldStorage)
+    assert.deepEqual(newStorage.data, {
+      ...expectedPreferencesState,
+      AddressBookController: {
+        addressBook: {
+          '0x1': { foo: { bar: 'baz' } },
+          'kaplar': { foo: { bar: 'baz' } },
+        },
+        bar: {
+          baz: 'buzz',
+        },
+      },
+      foo: 'bar',
+    })
+  })
+
+  it('should delete localhost key in IncomingTransactionsController', async function () {
+    const oldStorage = {
+      meta: {},
+      data: {
+        IncomingTransactionsController: {
+          incomingTxLastFetchedBlocksByNetwork: {
+            fizz: 'buzz',
+            localhost: {},
+          },
+          bar: 'baz',
+        },
+        foo: 'bar',
+      },
+    }
+
+    const newStorage = await migration48.migrate(oldStorage)
+    assert.deepEqual(newStorage.data, {
+      ...expectedPreferencesState,
+      IncomingTransactionsController: {
+        incomingTxLastFetchedBlocksByNetwork: {
+          fizz: 'buzz',
+        },
+        bar: 'baz',
+      },
+      foo: 'bar',
+    })
+  })
+
+  it('should not modify IncomingTransactionsController state if affected key is missing', async function () {
+    const oldStorage = {
+      meta: {},
+      data: {
+        IncomingTransactionsController: {
+          incomingTxLastFetchedBlocksByNetwork: {
+            fizz: 'buzz',
+            rpc: {},
+          },
+          bar: 'baz',
+        },
+        foo: 'bar',
+      },
+    }
+
+    const newStorage = await migration48.migrate(oldStorage)
+    assert.deepEqual(newStorage.data, {
+      ...expectedPreferencesState,
+      IncomingTransactionsController: {
+        incomingTxLastFetchedBlocksByNetwork: {
+          fizz: 'buzz',
+          rpc: {},
+        },
+        bar: 'baz',
+      },
+      foo: 'bar',
+    })
+  })
+
+  it('should merge localhost token list into rpc token list', async function () {
+    const oldStorage = {
+      meta: {},
+      data: {
+        PreferencesController: {
+          accountTokens: {
+            address1: {
+              localhost: [
+                { address: '1', data1: 'stuff1' },
+                { address: '2', a: 'X', b: 'B' },
+              ],
+              rpc: [
+                { address: '2', a: 'A', c: 'C' },
+                { address: '3', data3: 'stuff3' },
+              ],
+              foo: [],
+            },
+            address2: {
+              localhost: [],
+              rpc: [],
+              foo: [],
+            },
+            address3: {},
+          },
+          bar: 'baz',
+        },
+        foo: 'bar',
+      },
+    }
+
+    const newStorage = await migration48.migrate(oldStorage)
+    assert.deepEqual(newStorage.data, {
+      PreferencesController: {
+        accountTokens: {
+          address1: {
+            rpc: [
+              { address: '1', data1: 'stuff1' },
+              { address: '2', a: 'A', b: 'B', c: 'C' },
+              { address: '3', data3: 'stuff3' },
+            ],
+            foo: [],
+          },
+          address2: {
+            rpc: [],
+            foo: [],
+          },
+          address3: {},
+        },
+        bar: 'baz',
+        // from other migration
+        frequentRpcListDetail: [{
+          ...localhostNetwork,
+        }],
       },
       foo: 'bar',
     })

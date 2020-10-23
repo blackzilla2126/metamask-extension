@@ -10,6 +10,9 @@ const version = 48
  * 3.  Add localhost network to frequentRpcListDetail.
  * 4.  Delete CachedBalancesController.cachedBalances
  * 5.  Convert transactions metamaskNetworkId to decimal if they are hex
+ * 6.  Convert address book keys from decimal to hex
+ * 7.  Delete localhost key in IncomingTransactionsController
+ * 8.  Merge 'localhost' tokens into 'rpc' tokens
  */
 export default {
   version,
@@ -87,5 +90,135 @@ function transformState (state = {}) {
     })
   }
 
+  // 6.  Convert address book keys from decimal to hex
+  const addressBook = state.AddressBookController?.addressBook || {}
+  Object.keys(addressBook).forEach((networkKey) => {
+    if ((/^\d+$/ui).test(networkKey)) {
+      const chainId = `0x${parseInt(networkKey, 10).toString(16)}`
+      updateChainIds(addressBook[networkKey], chainId)
+
+      if (addressBook[chainId]) {
+        mergeAddressBookKeys(addressBook, networkKey, chainId)
+      } else {
+        addressBook[chainId] = addressBook[networkKey]
+      }
+      delete addressBook[networkKey]
+    }
+  })
+
+  // 7.  Delete localhost key in IncomingTransactionsController
+  delete state.IncomingTransactionsController
+    ?.incomingTxLastFetchedBlocksByNetwork
+    ?.localhost
+
+  // 8.  Merge 'localhost' tokens into 'rpc' tokens
+  const accountTokens = state.PreferencesController?.accountTokens
+  if (accountTokens) {
+    Object.keys(accountTokens).forEach((account) => {
+      const localhostTokens = accountTokens[account]?.localhost || []
+
+      if (localhostTokens.length > 0) {
+        const rpcTokens = accountTokens[account].rpc || []
+
+        if (rpcTokens.length > 0) {
+          accountTokens[account].rpc = mergeTokenArrays(localhostTokens, rpcTokens)
+        } else {
+          accountTokens[account].rpc = localhostTokens
+        }
+      }
+      delete accountTokens[account]?.localhost
+    })
+  }
+
   return state
+}
+
+/**
+ * Merges the two given keys for the given address book in place.
+ *
+ * @returns {void}
+ */
+function mergeAddressBookKeys (addressBook, networkKey, chainIdKey) {
+  const networkKeyEntries = addressBook[networkKey] || {}
+  // For the new entries, start by copying the existing entries for the chainId
+  const newEntries = { ...addressBook[chainIdKey] }
+
+  // For each address of the old/networkId key entries
+  Object.keys(networkKeyEntries).forEach((address) => {
+    if (newEntries[address] && typeof newEntries[address] === 'object') {
+      const mergedEntry = {}
+
+      // Collect all keys from both entries and merge the corresponding chainId
+      // entry with the networkId entry
+      new Set([
+        ...Object.keys(newEntries[address]),
+        ...Object.keys(networkKeyEntries[address] || {}),
+      ]).forEach((key) => {
+        // Use non-empty value for the current key, if any
+        mergedEntry[key] = (
+          newEntries[address][key] ||
+          networkKeyEntries[address]?.[key] ||
+          ''
+        )
+      })
+
+      newEntries[address] = mergedEntry
+    } else if (
+      networkKeyEntries[address] &&
+      typeof networkKeyEntries[address] === 'object'
+    ) {
+      // If there is no corresponding chainId entry, just use the networkId entry
+      // directly
+      newEntries[address] = networkKeyEntries[address]
+    }
+  })
+
+  addressBook[chainIdKey] = newEntries
+}
+
+/**
+ * Updates the chainId key values to the given chainId in place for all values
+ * of the given networkEntries object.
+ *
+ * @returns {void}
+ */
+function updateChainIds (networkEntries, chainId) {
+  Object.values(networkEntries).forEach((entry) => {
+    if (entry && typeof entry === 'object') {
+      entry.chainId = chainId
+    }
+  })
+}
+
+/**
+ * Merges the two given, non-empty arrays of token objects and returns a new
+ * array.
+ *
+ * @returns {Array<Object>}
+ */
+function mergeTokenArrays (localhostTokens, rpcTokens) {
+  const localhostTokensMap = tokenArrayToMap(localhostTokens)
+  const rpcTokensMap = tokenArrayToMap(rpcTokens)
+
+  const mergedTokens = []
+  new Set([
+    ...Object.keys(localhostTokensMap),
+    ...Object.keys(rpcTokensMap),
+  ]).forEach((tokenAddress) => {
+    mergedTokens.push({
+      ...localhostTokensMap[tokenAddress],
+      ...rpcTokensMap[tokenAddress],
+    })
+  })
+
+  return mergedTokens
+
+  function tokenArrayToMap (array) {
+    return array.reduce((map, token) => {
+      if (token?.address && typeof token?.address === 'string') {
+        map[token.address] = token
+      }
+      return map
+    }, {})
+  }
 }
